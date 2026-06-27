@@ -1,0 +1,28 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Large dataset files (don't push to GitHub)
+dataset/train.csv
+dataset/test.csv
+dataset/sample_submission.csv
+
+# Output submissions (ignore local submissions to prevent clutter)
+*.csv
+!sample_submission.csv  # Keep templates if any, but ignore actual submissions
+
+# Zip packages
+*.zip
+
+# Local agent scratch folders
+.agents/
+.superpowers/
