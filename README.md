@@ -208,4 +208,4 @@ Reviewer charts are saved in the `submission_charts/` directory:
 
 ## 📞 Contact
 
-Developed by **Jayant** for the Flipkart GRId 6.0 hackathon. For queries regarding replication or model design, feel free to inspect [APPROACH.md](file:///E:/ROCm/Flipkart/Submission/APPROACH.md) or get in touch.
+Developed by **Jayant** for the Flipkart GRIDLOCK 2.0 hackathon. For queries regarding replication or model design, feel free to inspect [APPROACH.md](file:///E:/ROCm/Flipkart/Submission/APPROACH.md) or get in touch.
