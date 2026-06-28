@@ -1,4 +1,4 @@
-# 🚦 Flipkart GRId 6.0 — Gridlock Traffic Demand Forecasting
+# 🚦 Flipkart GRIDLOCK 2.0 — Gridlock Traffic Demand Forecasting
 
 <div align="center">
 
