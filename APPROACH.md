@@ -191,12 +191,12 @@ Let $y_{i, d, m}$ represent demand at geohash $i$, day $d$, and minute of the da
 1. **Morning Calibration Factor ($\gamma_i$)**: Evaluated over the visible morning prefix $\mathcal{P}$:
 $$\gamma_i = \frac{\sum_{m \in \mathcal{P}} y_{i, 49, m}}{\sum_{m \in \mathcal{P}} y_{i, 48, m} + \epsilon}$$
 2. **Trend Forecasting**: Employs a linear trend extrapolation over the prefix differences:
-$$\text{trend\_forecast}_{i, t} = y_{i, 48, t} + \left( \beta_0 + \beta_1 (t - T) \right)$$
+$$\text{trend-forecast}_{i, t} = y_{i, 48, t} + \left( \beta_0 + \beta_1 (t - T) \right)$$
 3. **Local Blend**:
-$$\hat{y}^{\text{local}}_{i, t} = 0.68 \cdot (\gamma_{i} \cdot y_{i, 48, t}) + 0.22 \cdot \text{trend\_forecast}_{i, t} + 0.10 \cdot y_{i, 48, t}$$
+$$\hat{y}^{\text{local}}_{i, t} = 0.68 \cdot (\gamma_{i} \cdot y_{i, 48, t}) + 0.22 \cdot \text{trend-forecast}_{i, t} + 0.10 \cdot y_{i, 48, t}$$
 
 The **V266 Hyperlocal candidate** combines these representations:
-$$\hat{y}^{\text{V266}}_{i, t} = 0.50 \cdot \text{RankMap}_{ch\_w08}(\hat{y}^{\text{local}}) + 0.30 \cdot \text{ResidSafe}_{a025}(\hat{y}^{\text{local}}) + 0.20 \cdot \text{ValueMid}_{w06}(\hat{y}^{\text{local}})$$
+$$\hat{y}^{\text{V266}}_{i, t} = 0.50 \cdot \text{RankMap}_{ch-w08}(\hat{y}^{\text{local}}) + 0.30 \cdot \text{ResidSafe}_{a025}(\hat{y}^{\text{local}}) + 0.20 \cdot \text{ValueMid}_{w06}(\hat{y}^{\text{local}})$$
 
 ### Top-Shelf Tail Protection
 Because aggressive hyperlocal scaling can degrade predictions on high-congestion outlier rows, we enforce a tail protection filter:
@@ -213,19 +213,19 @@ This preserves the raw model's high-fidelity peak predictions while leveraging h
 To adapt final predictions to different spatial-temporal contexts, the final stage applies a Mixture-of-Experts (MoE) overlay. Rather than training a parameter-heavy neural router, we implement a hard-gated routing function mapped to structural metadata.
 
 The final predicted demand is a weighted combination of three specialized experts:
-$$\hat{y}^{\text{V267}}_{i, t} = 0.50 \cdot E_{\text{moe\_rank}}(\hat{y}^{\text{V266}}) + 0.30 \cdot E_{\text{dyn\_neighbor}}(\hat{y}^{\text{V266}}) + 0.20 \cdot E_{\text{tail\_c1\_up}}(\hat{y}^{\text{V266}})$$
+$$\hat{y}^{\text{V267}}_{i, t} = 0.50 \cdot E_{\text{moe-rank}}(\hat{y}^{\text{V266}}) + 0.30 \cdot E_{\text{dyn-neighbor}}(\hat{y}^{\text{V266}}) + 0.20 \cdot E_{\text{tail-c1-up}}(\hat{y}^{\text{V266}})$$
 
-### 8.1. Expert 1: Group Reranking ($E_{\text{moe\_rank}}$)
+### 8.1. Expert 1: Group Reranking ($E_{\text{moe-rank}}$)
 Adjusts predictions based on spatial-temporal groups defined by cluster assignment, evaluation horizon block, and road classification. It maps predicted values to the historical empirical target distribution within each group, preserving target quantiles.
 
-### 8.2. Expert 2: Spatial Dynamic-Neighbor Smoothing ($E_{\text{dyn\_neighbor}}$)
+### 8.2. Expert 2: Spatial Dynamic-Neighbor Smoothing ($E_{\text{dyn-neighbor}}$)
 Corrects localized estimation noise by applying a spatial diffusion operator across contemporaneous adjacent geohashes:
-$$E_{\text{dyn\_neighbor}}(\hat{y}_{i,t}) = (1 - \alpha) \hat{y}_{i,t} + \alpha \sum_{j \in \mathcal{N}_1(i)} \bar{W}_{ij} \hat{y}_{j,t}$$
+$$E_{\text{dyn-neighbor}}(\hat{y}_{i,t}) = (1 - \alpha) \hat{y}_{i,t} + \alpha \sum_{j \in \mathcal{N}_1(i)} \bar{W}_{ij} \hat{y}_{j,t}$$
 where $\mathcal{N}_1(i)$ represents the direct spatial neighbors of $i$, $\bar{W}_{ij}$ is the normalized historical flow connectivity between $i$ and $j$, and $\alpha = 0.20$ is the diffusion rate.
 
-### 8.3. Expert 3: Cluster-1 High-Density Tail Calibration ($E_{\text{tail\_c1\_up}}$)
+### 8.3. Expert 3: Cluster-1 High-Density Tail Calibration ($E_{\text{tail-c1-up}}$)
 Selectively amplifies peak values in high-density transit routes (Cluster 1) to counteract the smoothing effect (regression-to-the-mean) inherent in ensemble tree models:
-$$E_{\text{tail\_c1\_up}}(\hat{y}_{i,t}) = \hat{y}_{i,t} \cdot \left(1 + \delta \cdot \mathbb{I}(C(i) = 1 \land \hat{y}_{i,t} \gt \theta_{\text{peak}})\right)$$
+$$E_{\text{tail-c1-up}}(\hat{y}_{i,t}) = \hat{y}_{i,t} \cdot \left(1 + \delta \cdot \mathbb{I}(C(i) = 1 \land \hat{y}_{i,t} \gt \theta_{\text{peak}})\right)$$
 
 ---
 
