@@ -36,65 +36,65 @@ graph TD
     classDef output fill:#313244,stroke:#F38BA8,stroke-width:2px,color:#F38BA8;
 
     %% Nodes
-    Train[Train Data & Network Topology]:::input
-    Test[Test Data: Horizon T+1 to T+H]:::input
+    Train["Train Data & Network Topology"]:::input
+    Test["Test Data: Horizon T+1 to T+H"]:::input
 
     subgraph CoreModel [1. Autoregressive Ensemble Pipeline]
-        CB[CatBoost Expert: Target = 1 - Demand]:::model
-        LGBM[LightGBM Expert: Target = Demand]:::model
-        XGB[XGBoost Expert: Target = Demand]:::model
+        CB["CatBoost Expert: Target = 1 - Demand"]:::model
+        LGBM["LightGBM Expert: Target = Demand"]:::model
+        XGB["XGBoost Expert: Target = Demand"]:::model
         
-        CB --> Blend[Base Ensemble Blend: 0.2*CB + 0.3*LGB + 0.5*XGB]:::ensemble
+        CB --> Blend["Base Ensemble Blend: 0.2*CB + 0.3*LGB + 0.5*XGB"]:::ensemble
         LGBM --> Blend
         XGB --> Blend
         
-        State[State Update Loop: Update Lag_1 & EWMA_0.3] --> CB
+        State["State Update Loop: Update Lag_1 & EWMA_0.3"] --> CB
         State --> LGBM
         State --> XGB
         
-        Blend --> ClusterBias[Cluster-Aware Bias Adjustment]:::ensemble
-        ClusterBias --> RawPreds[Raw Autoregressive Predictions]:::ensemble
+        Blend --> ClusterBias["Cluster-Aware Bias Adjustment"]:::ensemble
+        ClusterBias --> RawPreds["Raw Autoregressive Predictions"]:::ensemble
     end
 
     subgraph Hyperlocal [2. Day 48 / Day 49 Calibration Branch]
-        D48[Day 48 Same-Minute Profile]:::input
-        D49[Day 49 Early Calibration Prefix]:::input
-        D49Local[Day 49 Early Local Trend]:::input
+        D48["Day 48 Same-Minute Profile"]:::input
+        D49["Day 49 Early Calibration Prefix"]:::input
+        D49Local["Day 49 Early Local Trend"]:::input
         
-        CalFactor[Morning Calibration Factor calculation]:::ensemble
+        CalFactor["Morning Calibration Factor calculation"]:::ensemble
         D48 --> CalFactor
         D49 --> CalFactor
         
-        LocalValue[Hyperlocal Forecast: 0.68*Cal_Prof + 0.22*Trend + 0.10*D48]:::ensemble
+        LocalValue["Hyperlocal Forecast: 0.68*Cal_Prof + 0.22*Trend + 0.10*D48"]:::ensemble
         CalFactor --> LocalValue
         D49Local --> LocalValue
         
-        V266Blend[V266 Blending: 0.5*RankMap + 0.3*ResidSafe + 0.2*ValueMid]:::ensemble
+        V266Blend["V266 Blending: 0.5*RankMap + 0.3*ResidSafe + 0.2*ValueMid"]:::ensemble
         LocalValue --> V266Blend
     end
 
     %% Blending and protection
-    TopShelf[Top-Shelf Protection: Preserve Raw if Rank > 0.97]:::ensemble
+    TopShelf["Top-Shelf Protection: Preserve Raw if Rank > 0.97"]:::ensemble
     RawPreds --> TopShelf
     V266Blend --> TopShelf
     
     subgraph FinalOverlay [3. Mixture-of-Experts Overlay]
-        TopShelf --> V266Out[V266 Intermediate Candidate]
+        TopShelf --> V266Out["V266 Intermediate Candidate"]
         
-        MoeRank[Expert 1: Group Reranking by Cluster/Horizon/Road]:::model
-        DynNeighbor[Expert 2: Spatial Dynamic-Neighbor Smoothing]:::model
-        TailCal[Expert 3: Cluster-1 High-Density Tail Calibration]:::model
+        MoeRank["Expert 1: Group Reranking by Cluster/Horizon/Road"]:::model
+        DynNeighbor["Expert 2: Spatial Dynamic-Neighbor Smoothing"]:::model
+        TailCal["Expert 3: Cluster-1 High-Density Tail Calibration"]:::model
         
         V266Out --> MoeRank
         V266Out --> DynNeighbor
         V266Out --> TailCal
         
-        MoeRank --> FinalBlend[V267 Final Blend: 0.5*MoE + 0.3*Neighbor + 0.2*Tail]:::ensemble
+        MoeRank --> FinalBlend["V267 Final Blend: 0.5*MoE + 0.3*Neighbor + 0.2*Tail"]:::ensemble
         DynNeighbor --> FinalBlend
         TailCal --> FinalBlend
     end
 
-    FinalBlend --> Output[Final Output: submission_Jayant.csv]:::output
+    FinalBlend --> Output["Final Output: submission_Jayant.csv"]:::output
 ```
 
 ---
@@ -109,7 +109,7 @@ where:
 * $\bar{y}_{\text{global}}$ is the global mean demand across all training records.
 * $\alpha(g) \in [0, 1]$ is a shrinkage factor governed by the category frequency $n_g$:
 $$\alpha(g) = \frac{n_g}{n_g + m}$$
-The smoothing parameter $m > 0$ (configured as $m = 10$) controls the regularization strength. For geohashes with sparse historical records ($n_g \to 0$), the representation smoothly transitions to the global prior ($\alpha(g) \to 0$), preventing high-variance estimate errors.
+The smoothing parameter $m \gt 0$ (configured as $m = 10$) controls the regularization strength. For geohashes with sparse historical records ($n_g \to 0$), the representation smoothly transitions to the global prior ($\alpha(g) \to 0$), preventing high-variance estimate errors.
 
 ### 3.2. Multi-Scale Spatial Centrality
 Traffic congestion does not occur in spatial isolation; flow structures are dictated by the road network topology. Let $G = (V, E)$ represent the spatial adjacency graph of geohashes.
@@ -149,15 +149,15 @@ For our final model, setting $p \approx 1.5$ matches the physical process of dis
 
 ### 5.2. Asymmetric Quadratic Loss (Quantile Regression)
 Over-predicting road capacity (which corresponds to under-predicting traffic demand) causes gridlock events, resulting in higher operational penalties than conservative under-predictions. To address this risk, we train a CatBoost model using an asymmetric objective function on idle capacity ($1 - y_{i,t}$):
-$$\mathcal{L}_{\text{Asym}}(y, \hat{y}; \tau) = \tau (y - \hat{y})^2 \cdot \mathbb{I}(y \ge \hat{y}) + (1 - \tau)(y - \hat{y})^2 \cdot \mathbb{I}(y < \hat{y})$$
-For a target asymmetry parameter $\tau > 0.5$, the gradient $g$ and hessian $h$ optimized during leaf estimation are:
+$$\mathcal{L}_{\text{Asym}}(y, \hat{y}; \tau) = \tau (y - \hat{y})^2 \cdot \mathbb{I}(y \ge \hat{y}) + (1 - \tau)(y - \hat{y})^2 \cdot \mathbb{I}(y \lt \hat{y})$$
+For a target asymmetry parameter $\tau \gt 0.5$, the gradient $g$ and hessian $h$ optimized during leaf estimation are:
 $$g = \begin{cases} 
 -2 \tau (y - \hat{y}) & \text{if } y \ge \hat{y} \\
--2 (1 - \tau)(y - \hat{y}) & \text{if } y < \hat{y}
+-2 (1 - \tau)(y - \hat{y}) & \text{if } y \lt \hat{y}
 \end{cases}, \quad
 h = \begin{cases} 
 2 \tau & \text{if } y \ge \hat{y} \\
-2 (1 - \tau) & \text{if } y < \hat{y}
+2 (1 - \tau) & \text{if } y \lt \hat{y}
 \end{cases}$$
 This shifts predictions toward protecting the tail distribution of peak demand, safeguarding the system from severe gridlock underestimation.
 
@@ -201,7 +201,7 @@ $$\hat{y}^{\text{V266}}_{i, t} = 0.50 \cdot \text{RankMap}_{ch\_w08}(\hat{y}^{\t
 ### Top-Shelf Tail Protection
 Because aggressive hyperlocal scaling can degrade predictions on high-congestion outlier rows, we enforce a tail protection filter:
 $$\hat{y}^{\text{V266}}_{i, t} = \begin{cases}
-\hat{y}^{\text{raw}}_{i, t} & \text{if } \text{Rank}(\hat{y}^{\text{raw}}_{i, t}) > 0.97 \\
+\hat{y}^{\text{raw}}_{i, t} & \text{if } \text{Rank}(\hat{y}^{\text{raw}}_{i, t}) \gt 0.97 \\
 \hat{y}^{\text{V266}}_{i, t} & \text{otherwise}
 \end{cases}$$
 This preserves the raw model's high-fidelity peak predictions while leveraging hyperlocal corrections for mid-to-low range demand states.
@@ -225,7 +225,7 @@ where $\mathcal{N}_1(i)$ represents the direct spatial neighbors of $i$, $\bar{W
 
 ### 8.3. Expert 3: Cluster-1 High-Density Tail Calibration ($E_{\text{tail\_c1\_up}}$)
 Selectively amplifies peak values in high-density transit routes (Cluster 1) to counteract the smoothing effect (regression-to-the-mean) inherent in ensemble tree models:
-$$E_{\text{tail\_c1\_up}}(\hat{y}_{i,t}) = \hat{y}_{i,t} \cdot \left(1 + \delta \cdot \mathbb{I}(C(i) = 1 \land \hat{y}_{i,t} > \theta_{\text{peak}})\right)$$
+$$E_{\text{tail\_c1\_up}}(\hat{y}_{i,t}) = \hat{y}_{i,t} \cdot \left(1 + \delta \cdot \mathbb{I}(C(i) = 1 \land \hat{y}_{i,t} \gt \theta_{\text{peak}})\right)$$
 
 ---
 
